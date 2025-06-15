@@ -30,23 +30,6 @@ services:
     restart: unless-stopped
 
   # -------------------------
-  # PostgreSQL DB
-  # -------------------------
-  postgres:
-    image: postgres:15
-    container_name: postgres
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
-    ports:
-      - "5432:5432"
-    restart: unless-stopped
-
-  # -------------------------
   # Prometheus
   # -------------------------
   prometheus:
@@ -56,6 +39,20 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
+    restart: unless-stopped
+
+  # -------------------------
+  # Node Exporter (system metrics)
+  # -------------------------
+  node_exporter:
+    image: prom/node-exporter
+    container_name: node_exporter
+    ports:
+      - "9100:9100"
+    command:
+      - '--path.rootfs=/host'
+    volumes:
+      - '/:/host:ro,rslave'
     restart: unless-stopped
 
   # -------------------------
