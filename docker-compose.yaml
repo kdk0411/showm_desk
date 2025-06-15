@@ -1,0 +1,103 @@
+services:
+  # -------------------------
+  # RustDesk Server (hbbs)
+  # -------------------------
+  hbbs:
+    container_name: hbbs
+    image: rustdesk/rustdesk-server:latest
+    command: hbbs
+    environment:
+      - ALWAYS_USE_RELAY=Y
+    volumes:
+      - ./data:/root
+      - ./logs:/var/log/rustdesk
+    network_mode: host
+    restart: unless-stopped
+    depends_on:
+      - hbbr
+
+  # -------------------------
+  # RustDesk Relay (hbbr)
+  # -------------------------
+  hbbr:
+    container_name: hbbr
+    image: rustdesk/rustdesk-server:latest
+    command: hbbr
+    volumes:
+      - ./data:/root
+      - ./logs:/var/log/rustdesk
+    network_mode: host
+    restart: unless-stopped
+
+  # -------------------------
+  # PostgreSQL DB
+  # -------------------------
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  # -------------------------
+  # Prometheus
+  # -------------------------
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  # -------------------------
+  # Loki (log storage)
+  # -------------------------
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    volumes:
+      - ./loki-config.yaml:/etc/loki/config.yaml
+    ports:
+      - "3100:3100"
+    restart: unless-stopped
+
+  # -------------------------
+  # Promtail (log collector)
+  # -------------------------
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: promtail
+    volumes:
+      - ./logs:/var/log/rustdesk
+      - ./promtail-config.yaml:/etc/promtail/config.yaml
+    command: -config.file=/etc/promtail/config.yaml
+    restart: unless-stopped
+
+  # -------------------------
+  # Grafana
+  # -------------------------
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  grafana_data:
