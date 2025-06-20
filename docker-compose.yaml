@@ -10,7 +10,6 @@ services:
       - ALWAYS_USE_RELAY=Y
     volumes:
       - ./data:/root
-      - ./logs:/var/log/rustdesk
     network_mode: host
     restart: unless-stopped
     depends_on:
@@ -25,12 +24,11 @@ services:
     command: hbbr
     volumes:
       - ./data:/root
-      - ./logs:/var/log/rustdesk
     network_mode: host
     restart: unless-stopped
 
   # -------------------------
-  # Prometheus
+  # Prometheus (하드웨어 메트릭 수집)
   # -------------------------
   prometheus:
     image: prom/prometheus
@@ -39,10 +37,12 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
+    networks:
+      - monitoring_network
     restart: unless-stopped
 
   # -------------------------
-  # Node Exporter (system metrics)
+  # Node Exporter (시스템 하드웨어 메트릭)
   # -------------------------
   node_exporter:
     image: prom/node-exporter
@@ -50,37 +50,15 @@ services:
     ports:
       - "9100:9100"
     command:
-      - '--path.rootfs=/host'
+      - "--path.rootfs=/host"
     volumes:
-      - '/:/host:ro,rslave'
+      - "/:/host:ro,rslave"
+    networks:
+      - monitoring_network
     restart: unless-stopped
 
   # -------------------------
-  # Loki (log storage)
-  # -------------------------
-  loki:
-    image: grafana/loki:2.9.0
-    container_name: loki
-    volumes:
-      - ./loki-config.yaml:/etc/loki/config.yaml
-    ports:
-      - "3100:3100"
-    restart: unless-stopped
-
-  # -------------------------
-  # Promtail (log collector)
-  # -------------------------
-  promtail:
-    image: grafana/promtail:2.9.0
-    container_name: promtail
-    volumes:
-      - ./logs:/var/log/rustdesk
-      - ./promtail-config.yaml:/etc/promtail/config.yaml
-    command: -config.file=/etc/promtail/config.yaml
-    restart: unless-stopped
-
-  # -------------------------
-  # Grafana
+  # Grafana (하드웨어 모니터링 대시보드)
   # -------------------------
   grafana:
     image: grafana/grafana
@@ -89,12 +67,17 @@ services:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
       - ./grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - monitoring_network
     restart: unless-stopped
 
+networks:
+  monitoring_network:
+    driver: bridge
+
 volumes:
-  pgdata:
   grafana_data:
